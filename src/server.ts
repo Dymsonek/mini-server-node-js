@@ -19,13 +19,27 @@ const addRoute = (method: string, path: string, handler: Handler) => {
 };
 const matchRoute = (method: string, url: url): Route | undefined => {
   const { pathname } = new URL(url, "http://localhost");
-  routes.find((r) => r.method === method && r.path === pathname);
+  return routes.find((r) => r.method === method && r.path === pathname);
 };
 
+addRoute("GET", "/", (req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("Welcome to Home Page");
+});
+addRoute("POST", "/echo", async (req, res) => {
+  let body = "";
+  for await (const chunk of req) body += chunk;
+  res.writeHead(200, { "Content-type": "application/json" });
+  res.end(JSON.stringify({ youSent: body }));
+});
+
 const server = http.createServer((req, res) => {
-  res.statusCode = 200;
-  res.setHeader("Content-type", "text/plain; charset=utf-8");
-  res.end("Hello, World!\n");
+  const route = req.url ? matchRoute(req.method || "GET", req.url) : undefined;
+  if (route) {
+    route.handler(req, res);
+  }
+  res.writeHead(404, { "Content-type": "text/plain" });
+  res.end("Not Found");
 });
 
 server.listen(port, hostname, () => {
