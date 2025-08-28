@@ -1,6 +1,7 @@
-import * as http from "http";
-import { IncomingMessage, ServerResponse } from "http";
-import { URL } from "url";
+import * as http from "node:http";
+import { IncomingMessage, ServerResponse } from "node:http";
+import { URL } from "node:url";
+import { parseBody } from "./utils/parseBody";
 
 type HttpMethod =
   | "GET"
@@ -10,14 +11,13 @@ type HttpMethod =
   | "DELETE"
   | "OPTIONS"
   | "HEAD";
-
 type Handler = (
   req: IncomingMessage,
   res: ServerResponse,
 ) => void | Promise<void>;
 
 interface Route {
-  method: string;
+  method: HttpMethod;
   path: string;
   handler: Handler;
 }
@@ -26,6 +26,10 @@ const hostname = "127.0.0.1";
 const port = 3000;
 
 const routes: Route[] = [];
+
+const logger = (req: IncomingMessage) => {
+  console.log(`${new Date().toISOString()} | ${req.method} ${req.url}`);
+};
 
 const addRoute = (method: HttpMethod, path: string, handler: Handler) => {
   routes.push({ method, path, handler });
@@ -40,25 +44,34 @@ const matchRoute = (
   return routes.find((r) => r.method === method && r.path === pathname);
 };
 
-addRoute("GET", "/", (req, res) => {
+// --- routes ---
+addRoute("GET", "/", (_req, res) => {
   res.writeHead(200, { "Content-Type": "text/plain" });
   res.end("Welcome to Home Page");
 });
 
 addRoute("POST", "/echo", async (req, res) => {
-  let body = "";
-  for await (const chunk of req) body += chunk;
-  res.writeHead(200, { "Content-type": "application/json" });
-  res.end(JSON.stringify({ youSent: body }));
+  const body = await parseBody(req);
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ parsed: body }));
 });
 
-const server = http.createServer((req, res) => {
-  const route = req.url ? matchRoute(req.method || "GET", req.url) : undefined;
+// --- server ---
+const server = http.createServer(async (req, res) => {
+  logger(req);
+
+  const method = (req.method || "GET") as HttpMethod;
+  const route = req.url ? matchRoute(method, req.url) : undefined;
+
   if (route) {
-    route.handler(req, res);
+    await route.handler(req, res);
+    return;
   }
-  res.writeHead(404, { "Content-type": "text/plain" });
-  res.end("Not Found");
+
+  if (!res.headersSent && !res.writableEnded) {
+    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.end("Not Found");
+  }
 });
 
 server.listen(port, hostname, () => {
