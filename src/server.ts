@@ -1,26 +1,11 @@
 import * as http from "node:http";
-import { IncomingMessage, ServerResponse } from "node:http";
+import { IncomingMessage } from "node:http";
 import { URL } from "node:url";
 import { parseBody } from "./utils/parseBody";
-
-type HttpMethod =
-  | "GET"
-  | "POST"
-  | "PUT"
-  | "PATCH"
-  | "DELETE"
-  | "OPTIONS"
-  | "HEAD";
-type Handler = (
-  req: IncomingMessage,
-  res: ServerResponse,
-) => void | Promise<void>;
-
-interface Route {
-  method: HttpMethod;
-  path: string;
-  handler: Handler;
-}
+import { sendJson } from "./utils/sendJson";
+import type { HttpMethod, Route, Handler } from "./types/http";
+import { registerHealthRoutes } from "./routes/health";
+import { registerUserRoutes } from "./routes/users";
 
 const hostname = "127.0.0.1";
 const port = 3000;
@@ -52,9 +37,12 @@ addRoute("GET", "/", (_req, res) => {
 
 addRoute("POST", "/echo", async (req, res) => {
   const body = await parseBody(req);
-  res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({ parsed: body }));
+  sendJson(res, 200, { parsed: body });
 });
+
+// register modular routes
+registerHealthRoutes(addRoute);
+registerUserRoutes(addRoute);
 
 // --- server ---
 const server = http.createServer(async (req, res) => {

@@ -1,6 +1,6 @@
 import { IncomingMessage } from "http";
 
-export async function parseBody<T = any>(
+export async function parseBody<T = unknown>(
   req: IncomingMessage,
 ): Promise<T | null> {
   const contentType = req.headers["content-type"];
