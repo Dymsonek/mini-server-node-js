@@ -21,3 +21,13 @@ export interface Route {
 }
 
 export type AddRoute = (method: HttpMethod, path: string, handler: Handler) => void;
+
+// Parsed query representation exposed on req.query
+export type ParsedQuery = Record<string, string | string[]>;
+
+declare module "http" {
+  // Augment IncomingMessage to carry parsed query data
+  interface IncomingMessage {
+    query?: import("./http").ParsedQuery;
+  }
+}
